@@ -1,37 +1,52 @@
-#링크 삽입시 기사요약 코드 임시
-
+# ─────────────────────────────────────────────
+# 한국어 기사 자동 3줄 요약 프로그램
+# ─────────────────────────────────────────────
 from newspaper import Article
 from textrankr import TextRank
 from typing import List
-from konlpy.tag import Okt
+from kiwipiepy import Kiwi
 
-
-# 한국어 문장을 단어로 쪼개는 도구 (textrankr에 필요)
-class OktTokenizer:
+# 1) Kiwi 토크나이저 정의 (Java 없이 한국어 형태소 분석)
+class KiwiTokenizer:
     def __init__(self):
-        self.okt = Okt()
+        self.kiwi = Kiwi()
 
     def __call__(self, text: str) -> List[str]:
-        return self.okt.nouns(text)  # 명사만 추출해서 분석
+        tokens = self.kiwi.tokenize(text)
+        return [token.form for token in tokens]
 
 
-def summarize_korean_article(url, num_sentences=3):
-    # 1단계: 기사 본문 추출
+# 2) 네이버 뉴스 대응 본문 추출 함수
+def get_article_text(url: str) -> str:
     article = Article(url, language='ko')
     article.download()
     article.parse()
+    return article.text
 
-    print("📰 제목:", article.title)
 
-    if len(article.text) < 100:
-        print("⚠️ 본문을 제대로 가져오지 못했어요.")
+# 3) 메인 요약 함수
+def summarize_korean_article(url: str, num_sentences: int = 3):
+    # 본문 추출
+    text = get_article_text(url)
+
+    if not text or len(text.strip()) < 50:
+        print("⚠️ 본문을 가져오지 못했어요. 원본 언론사 링크를 사용해보세요!")
         return
 
-    # 2단계: TextRank로 중요한 문장 추출
-    textrank = TextRank(OktTokenizer())
-    summary = textrank.summarize(article.text, num_sentences)
+    # TextRank로 중요 문장 추출 (리스트 형태로 받기)
+    textrank = TextRank(KiwiTokenizer())
+    summary = textrank.summarize(text, num_sentences, verbose=False)
 
-    print("\n✏️ 요약:")
+    # 번호 붙여서 깔끔하게 출력
+    print("\n✏️ 핵심 요약 (3줄):")
+    for i, sentence in enumerate(summary, 1):
+        print(f"{i}. {sentence}")
+
+
+# 4) 실행
+if __name__ == "__main__":
+    url = input("기사 링크를 입력하세요: ")
+    summarize_korean_article(url, num_sentences=3)
     print(summary)
 
 
