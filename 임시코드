@@ -1,12 +1,14 @@
 # ─────────────────────────────────────────────
-# 한국어 기사 자동 3줄 요약 프로그램
+# 한국어 기사 자동 3줄 요약 (네이버 뉴스 대응) 
 # ─────────────────────────────────────────────
+import requests
+from bs4 import BeautifulSoup
 from newspaper import Article
 from textrankr import TextRank
 from typing import List
 from kiwipiepy import Kiwi
 
-# 1) Kiwi 토크나이저 정의 (Java 없이 한국어 형태소 분석)
+# 1) Kiwi 토크나이저 (Java 없이 한국어 형태소 분석)
 class KiwiTokenizer:
     def __init__(self):
         self.kiwi = Kiwi()
@@ -16,40 +18,50 @@ class KiwiTokenizer:
         return [token.form for token in tokens]
 
 
-# 2) 네이버 뉴스 대응 본문 추출 함수
+# 2) 네이버 전용 본문 추출
+def get_naver_news_text(url: str) -> str:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/120.0 Safari/537.36"
+    }
+    res = requests.get(url, headers=headers)
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    content = soup.select_one("#dic_area")
+    if content:
+        return content.get_text(separator="\n", strip=True)
+    return ""
+
+
+# 3) 본문 추출 (네이버면 전용, 아니면 newspaper3k)
 def get_article_text(url: str) -> str:
-    article = Article(url, language='ko')
-    article.download()
-    article.parse()
-    return article.text
+    if "naver.com" in url:
+        return get_naver_news_text(url)
+    else:
+        article = Article(url, language='ko')
+        article.download()
+        article.parse()
+        return article.text
 
 
-# 3) 메인 요약 함수
+# 4) 메인 요약 함수
 def summarize_korean_article(url: str, num_sentences: int = 3):
-    # 본문 추출
     text = get_article_text(url)
 
     if not text or len(text.strip()) < 50:
-        print("⚠️ 본문을 가져오지 못했어요. 원본 언론사 링크를 사용해보세요!")
+        print("⚠️ 본문을 가져오지 못했어요. 링크를 다시 확인해주세요!")
         return
 
-    # TextRank로 중요 문장 추출 (리스트 형태로 받기)
     textrank = TextRank(KiwiTokenizer())
     summary = textrank.summarize(text, num_sentences, verbose=False)
 
-    # 번호 붙여서 깔끔하게 출력
     print("\n✏️ 핵심 요약 (3줄):")
     for i, sentence in enumerate(summary, 1):
         print(f"{i}. {sentence}")
 
 
-# 4) 실행
+# 5) 실행
 if __name__ == "__main__":
     url = input("기사 링크를 입력하세요: ")
     summarize_korean_article(url, num_sentences=3)
-    print(summary)
-
-
-# 실행
-url = input("기사 링크를 입력하세요: ")
-summarize_korean_article(url)
