@@ -1,0 +1,2 @@
+#먼저 설치해야할 라이브러리
+pip install newspaper3k textrankr kiwipiepy requests beautifulsoup4 scipy
