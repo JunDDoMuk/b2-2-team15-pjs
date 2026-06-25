@@ -1,0 +1,38 @@
+from newspaper import Article
+from textrankr import TextRank
+from typing import List
+from konlpy.tag import Okt
+
+
+# 한국어 문장을 단어로 쪼개는 도구 (textrankr에 필요)
+class OktTokenizer:
+    def __init__(self):
+        self.okt = Okt()
+
+    def __call__(self, text: str) -> List[str]:
+        return self.okt.nouns(text)  # 명사만 추출해서 분석
+
+
+def summarize_korean_article(url, num_sentences=3):
+    # 1단계: 기사 본문 추출
+    article = Article(url, language='ko')
+    article.download()
+    article.parse()
+
+    print("📰 제목:", article.title)
+
+    if len(article.text) < 100:
+        print("⚠️ 본문을 제대로 가져오지 못했어요.")
+        return
+
+    # 2단계: TextRank로 중요한 문장 추출
+    textrank = TextRank(OktTokenizer())
+    summary = textrank.summarize(article.text, num_sentences)
+
+    print("\n✏️ 요약:")
+    print(summary)
+
+
+# 실행
+url = input("기사 링크를 입력하세요: ")
+summarize_korean_article(url)
